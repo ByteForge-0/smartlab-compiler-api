@@ -13,6 +13,15 @@ class Request(BaseModel):
 
     code:str
 
+@app.get("/")
+
+def home():
+
+    return {
+
+        "status":"Compiler API Running"
+
+    }
 
 @app.post("/run")
 
