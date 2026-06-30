@@ -6,77 +6,92 @@ import shutil
 import os
 
 
-app=FastAPI()
+app = FastAPI()
 
 
 class Request(BaseModel):
+    code: str
+    user_input: str = ""
 
-    code:str
 
 @app.get("/")
-
 def home():
 
     return {
 
-        "status":"Compiler API Running"
+        "status": "Compiler API Running"
 
     }
 
+
 @app.post("/run")
+def run(data: Request):
 
-def run(data:Request):
+    folder = tempfile.mkdtemp()
 
-    folder=tempfile.mkdtemp()
+    cpp = os.path.join(
+        folder,
+        "main.cpp"
+    )
+
+    exe = os.path.join(
+        folder,
+        "app"
+    )
 
     try:
 
-        cpp=f"{folder}/main.cpp"
+        with open(
+            cpp,
+            "w",
+            encoding="utf-8"
+        ) as f:
 
-        with open(cpp,"w") as f:
+            f.write(
+                data.code
+            )
 
-            f.write(data.code)
-
-
-        compile_result=subprocess.run(
+        compile_result = subprocess.run(
 
             [
 
-            "g++",
+                "g++",
 
-            cpp,
+                cpp,
 
-            "-o",
+                "-O2",
 
-            f"{folder}/app"
+                "-std=c++17",
+
+                "-o",
+
+                exe
 
             ],
 
             capture_output=True,
 
-            text=True
+            text=True,
+
+            timeout=15
 
         )
 
-
-        if compile_result.returncode!=0:
+        if compile_result.returncode != 0:
 
             return {
 
                 "output":
 
-                compile_result.stderr
+                compile_result.stderr[:5000]
 
             }
 
+        run_result = subprocess.run(
 
-        result=subprocess.run(
+            [exe],
 
-            [
-
-            f"{folder}/app"
-
-            ],
+            input=data.user_input,
 
             capture_output=True,
 
@@ -86,15 +101,19 @@ def run(data:Request):
 
         )
 
+        output = run_result.stdout
+
+        if len(output) > 50000:
+
+            output = output[:50000]
 
         return {
 
             "output":
 
-            result.stdout
+            output
 
         }
-
 
     except subprocess.TimeoutExpired:
 
@@ -106,6 +125,15 @@ def run(data:Request):
 
         }
 
+    except Exception as e:
+
+        return {
+
+            "output":
+
+            str(e)
+
+        }
 
     finally:
 
